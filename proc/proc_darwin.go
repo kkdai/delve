@@ -403,6 +403,12 @@ func (dbp *Process) resume() error {
 			thread.CurrentBreakpoint = nil
 		}
 	}
+	// TODO(dp) set flag for ptrace stops
+	var err error
+	t.dbp.execPtraceFunc(func() { err = PtraceCont(t.dbp.Pid, 0) })
+	if err == nil {
+		return nil
+	}
 	// everything is resumed
 	for _, thread := range dbp.Threads {
 		if err := thread.resume(); err != nil {
