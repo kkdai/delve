@@ -108,9 +108,9 @@ func (dbp *Process) Kill() (err error) {
 	if err != nil {
 		return errors.New("could not deliver signal: " + err.Error())
 	}
-	for port := range dbp.Threads {
-		if C.thread_resume(C.thread_act_t(port)) != C.KERN_SUCCESS {
-			return errors.New("could not resume task")
+	for _, th := range dbp.Threads {
+		if err := th.resume(); err != nil {
+			return err
 		}
 	}
 	for {
