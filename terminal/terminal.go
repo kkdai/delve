@@ -28,6 +28,7 @@ type Term struct {
 	line     *liner.State
 	cmds     *Commands
 	dumb     bool
+	stdout   io.Writer
 	InitFile string
 }
 
@@ -37,12 +38,23 @@ func New(client service.Client, conf *config.Config) *Term {
 	if conf != nil && conf.Aliases != nil {
 		cmds.Merge(conf.Aliases)
 	}
+
+	var w io.Writer
+
+	dumb := strings.ToLower(os.Getenv("TERM")) == "dumb"
+	if dumb {
+		w = os.Stdout
+	} else {
+		w = getColorableWriter()
+	}
+
 	return &Term{
 		prompt: "(dlv) ",
 		line:   liner.NewLiner(),
 		client: client,
 		cmds:   cmds,
-		dumb:   !supportsEscapeCodes(),
+		dumb:   dumb,
+		stdout: w,
 	}
 }
 
@@ -60,6 +72,7 @@ func (t *Term) Run() (int, error) {
 	signal.Notify(ch, syscall.SIGINT)
 	go func() {
 		for range ch {
+			fmt.Printf("recieved SIGINT, stopping process (will not forward signal)")
 			_, err := t.client.Halt()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%v", err)
@@ -134,7 +147,7 @@ func (t *Term) Println(prefix, str string) {
 	if !t.dumb {
 		prefix = fmt.Sprintf("%s%s%s", terminalBlueEscapeCode, prefix, terminalResetEscapeCode)
 	}
-	fmt.Printf("%s%s\n", prefix, str)
+	fmt.Fprintf(t.stdout, "%s%s\n", prefix, str)
 }
 
 func (t *Term) promptForInput() (string, error) {
